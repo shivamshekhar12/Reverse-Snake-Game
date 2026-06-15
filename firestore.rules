@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Leaderboard scoreboard rules
+    match /leaderboard/{scoreId} {
+      // Allow listing/reading entries publicly
+      allow read: if true;
+
+      // Allow creating a new score with rigid data constraints
+      allow create: if (
+        request.resource.data.keys().hasAll(['id', 'name', 'score', 'levelReached', 'movesTaken', 'createdAt']) &&
+        request.resource.data.keys().size() == 6 &&
+        request.resource.data.id == scoreId &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 15 &&
+        request.resource.data.score is int &&
+        request.resource.data.score >= 0 &&
+        request.resource.data.levelReached is int &&
+        request.resource.data.levelReached >= 1 &&
+        request.resource.data.movesTaken is int &&
+        request.resource.data.movesTaken >= 0 &&
+        request.resource.data.createdAt == request.time
+      );
+
+      // High scores are immortal - no modifications or deletions are allowed
+      allow update, delete: if false;
+    }
+  }
+}

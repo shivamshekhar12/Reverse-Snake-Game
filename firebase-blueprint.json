@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Score": {
+      "title": "Score",
+      "description": "Represents a submitted leaderboard high score entry.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique score identifier."
+        },
+        "name": {
+          "type": "string",
+          "description": "The nickname submitted by the player."
+        },
+        "score": {
+          "type": "integer",
+          "description": "The computed cumulative high score."
+        },
+        "levelReached": {
+          "type": "integer",
+          "description": "The highest level index achieved."
+        },
+        "movesTaken": {
+          "type": "integer",
+          "description": "Total cumulative moves spent across levels."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server authenticated timestamp when record is written."
+        }
+      },
+      "required": ["id", "name", "score", "levelReached", "movesTaken", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/leaderboard/{scoreId}": {
+      "schema": "Score",
+      "description": "Global leaderboard rankings scoreboard."
+    }
+  }
+}

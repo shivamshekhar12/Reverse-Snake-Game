@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@keyframes shake-subtle {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes shake-intense {
+  0% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, 3px) rotate(-0.5deg); }
+  20% { transform: translate(3px, -2px) rotate(0.5deg); }
+  30% { transform: translate(-5px, -3px) rotate(-1deg); }
+  40% { transform: translate(4px, 4px) rotate(1deg); }
+  50% { transform: translate(-3px, 2px) rotate(-0.5deg); }
+  60% { transform: translate(3px, 3px) rotate(0.5deg); }
+  70% { transform: translate(-2px, -2px) rotate(0deg); }
+  80% { transform: translate(2px, -1px) rotate(0.5deg); }
+  90% { transform: translate(-2px, 1px) rotate(-0.5deg); }
+  100% { transform: translate(0, 0); }
+}
+
+.shake-subtle {
+  animation: shake-subtle 0.2s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.shake-intense {
+  animation: shake-intense 0.35s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Scrollbars for visual cosmetic skin library */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Reverse Snake",
+  "description": "Control a snake and cut your tail to fit through restrictive level gates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
