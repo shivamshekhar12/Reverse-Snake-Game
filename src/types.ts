@@ -50,6 +50,11 @@ export interface Trap {
   isActive?: boolean; // dynamic traps like spikes that pop up/down
 }
 
+export enum LeaderboardType {
+  STANDARD = 'standard',
+  DAILY = 'daily',
+}
+
 export interface Level {
   id: number;
   name: string;

@@ -9,6 +9,7 @@ import { LEVELS } from '../data/levels';
 import { audioSystem } from '../utils/audio';
 import { generateDailyLevel } from '../utils/dailyGenerator';
 import { getLeaderboard, submitScore, LeaderboardEntry } from '../utils/firebase';
+import { LeaderboardType } from '../types';
 import { 
   Play, Pause, RotateCcw, Volume2, VolumeX, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, 
   HelpCircle, Sparkles, Trophy, Skull, Activity, ShieldCheck, ChevronRight, Zap, Info, RefreshCw, Send, Gamepad2, Lightbulb, Terminal, Cpu
@@ -283,6 +284,7 @@ export default function GameBoard() {
 
   // Session State - starts false (Lobby Mode) and becomes true (Immersive Game Mode)
   const [inSession, setInSession] = useState<boolean>(false);
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false); // NEW FOCUS MODE
   const [lobbyGuideTab, setLobbyGuideTab] = useState<'mechanics' | 'features' | 'controls'>('mechanics');
 
   // Performance and FPS Monitoring States
@@ -366,7 +368,7 @@ export default function GameBoard() {
   const [tickRate, setTickRate] = useState<number>(250); 
   const [alertText, setAlertText] = useState<string | null>(null);
   const [showHowToPlay, setShowHowToPlay] = useState<boolean>(true);
-  const [showDpadOverlay, setShowDpadOverlay] = useState<boolean>(true);
+  const [showDpadOverlay, setShowDpadOverlay] = useState<boolean>(false); // Disabled by default for better gesture experience
   const [dpadMode, setDpadMode] = useState<'fixed' | 'floating'>('floating');
   const [floatingCenter, setFloatingCenter] = useState<{ x: number; y: number } | null>(null);
   const [floatingKnob, setFloatingKnob] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -399,12 +401,23 @@ export default function GameBoard() {
   useEffect(() => {
     audioSystem.init();
     fetchRankings();
+  }, []); // Only run once for init and fetch
 
+  useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
-        const width = Math.min(containerRef.current.clientWidth, 600);
-        const height = Math.min(width * 0.72, 420);
-        setCanvasSize({ width, height });
+        const maxWidth = isFocusMode ? 1800 : 700;
+        const width = Math.min(containerRef.current.clientWidth, maxWidth);
+        
+        // Use a more squared aspect ratio on mobile screens to give more game space
+        const isMobileScreen = window.innerWidth <= 768;
+        const ratio = isMobileScreen ? 0.95 : 0.65;
+        const height = width * ratio; 
+        
+        const maxH = isFocusMode ? window.innerHeight * 0.8 : (isMobileScreen ? window.innerHeight * 0.65 : 450);
+        const clampedHeight = Math.min(height, maxH);
+        
+        setCanvasSize({ width, height: clampedHeight });
       }
     };
 
@@ -415,7 +428,7 @@ export default function GameBoard() {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [isFocusMode]);
 
   // Handle Level loading & reset
   const initLevel = (levelIndex: number, resetStats = false) => {
@@ -1048,8 +1061,9 @@ export default function GameBoard() {
       const todayInt = parseInt(todayStr.replace(/-/g, ''), 10);
       const finalScore = isDailyChallenge ? (1000000 - moves * 100) : sessionScore;
       const finalLevel = isDailyChallenge ? todayInt : activeLevel.id;
+      const scoreType = isDailyChallenge ? LeaderboardType.DAILY : LeaderboardType.STANDARD;
       
-      await submitScore(cleanName, finalScore, finalLevel, moves);
+      await submitScore(cleanName, finalScore, finalLevel, moves, scoreType);
 
       if (isDailyChallenge) {
         localStorage.setItem('reverse_snake_daily_challenge_' + todayStr, 'completed');
@@ -1317,19 +1331,33 @@ export default function GameBoard() {
   }, [snake, direction, isPlaying, isStepMode, currentLevelIdx, isGameOver, isLevelCompleted, isGameBeaten, showHowToPlay, loadNextLevel]);
 
   // Timed Loop for real-time play
+  const makeGameStepRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    makeGameStepRef.current = makeGameStep;
+  });
+
   useEffect(() => {
     if (isStepMode || !isPlaying || isGameOver || isLevelCompleted || isGameBeaten) {
       return;
     }
 
     const timer = setInterval(() => {
-      makeGameStep();
+      makeGameStepRef.current();
     }, tickRate);
 
     return () => clearInterval(timer);
-  }, [snake, direction, nextDirection, isPlaying, isStepMode, isGameOver, tickRate, currentLevelIdx]);
+  }, [isPlaying, isStepMode, isGameOver, isLevelCompleted, isGameBeaten, tickRate]);
 
   // Time Challenge Countdown Effect
+  const handleSnakeDeathRef = useRef(handleSnakeDeath);
+  const activeLevelRef = useRef(activeLevel);
+  const snakeRef = useRef(snake);
+  useEffect(() => {
+    handleSnakeDeathRef.current = handleSnakeDeath;
+    activeLevelRef.current = activeLevel;
+    snakeRef.current = snake;
+  });
+
   useEffect(() => {
     if (!isPlaying || !isTimeChallenge || isGameOver || isLevelCompleted || isGameBeaten) {
       return;
@@ -1339,7 +1367,9 @@ export default function GameBoard() {
       setTimeRemaining(prev => {
         if (prev <= 1) {
           clearInterval(clock);
-          handleSnakeDeath(snake[0] || activeLevel.startPos, "TIME EXPIRED: Quantum field decay! Core collapsed.");
+          const currentSnake = snakeRef.current;
+          const currentLevel = activeLevelRef.current;
+          handleSnakeDeathRef.current(currentSnake[0] || currentLevel.startPos, "TIME EXPIRED: Quantum field decay! Core collapsed.");
           triggerScreenShake('intense');
           return 0;
         }
@@ -1348,7 +1378,7 @@ export default function GameBoard() {
     }, 1000);
 
     return () => clearInterval(clock);
-  }, [isPlaying, isTimeChallenge, isGameOver, isLevelCompleted, isGameBeaten, snake, activeLevel]);
+  }, [isPlaying, isTimeChallenge, isGameOver, isLevelCompleted, isGameBeaten]);
 
   // Overall level gameplay timer (tracks seconds spent active in the current attempt)
   useEffect(() => {
@@ -2605,7 +2635,7 @@ export default function GameBoard() {
         )}
       </AnimatePresence>
 
-      <div className={`flex flex-col lg:flex-row gap-6 w-full ${inSession ? 'max-w-3xl' : 'max-w-6xl'} mx-auto font-sans`} id="game_layout_frame">
+      <div className={`flex flex-col lg:flex-row gap-6 w-full ${inSession ? (isFocusMode ? 'max-w-[95%] xl:max-w-[90vw]' : 'max-w-3xl') : 'max-w-6xl'} mx-auto font-sans`} id="game_layout_frame">
       {/* LEFT COLUMN: PRIMARY ARCADE PLAYGROUND */}
       <div className="flex-1 flex flex-col bg-[#05050a] border border-[#1a1a2e] rounded-2xl p-5 shadow-2xl relative overflow-hidden" id="viewport_main_frame">
         {/* Neon decorative background light */}
@@ -2758,19 +2788,35 @@ export default function GameBoard() {
             >
               <HelpCircle size={15} />
             </button>
+            <button
+              onClick={() => {
+                setIsFocusMode(!isFocusMode);
+                audioSystem.playClick();
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 50); // prompt resize for canvas
+              }}
+              className={`p-2 rounded transition-all border text-[11px] font-mono font-bold flex items-center gap-1.5 ${
+                isFocusMode 
+                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_8px_rgba(6,182,212,0.15)]' 
+                  : 'bg-slate-900 border-[#1a1a2e] text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Toggle Expand/Focus Mode"
+            >
+              <span>FOCUS: {isFocusMode ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Level Quick Info Alert */}
-        <div className="bg-slate-900/60 border border-slate-950 rounded-xl p-3 mb-4 text-xs text-slate-300 font-sans flex items-start gap-2.5">
-          <Info size={15} className="text-cyan-400 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="font-bold text-white">How-to: </span>{activeLevel.description}
+        {!isFocusMode && (
+          <div className="bg-slate-900/60 border border-slate-950 rounded-xl p-3 mb-4 text-xs text-slate-300 font-sans flex items-start gap-2.5">
+            <Info size={15} className="text-cyan-400 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-bold text-white">How-to: </span>{activeLevel.description}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Threat Alert Indicator for Restricted Area */}
-        {(() => {
+        {!isFocusMode && (() => {
           const threat = getThreatStatus();
           return (
             <div 
@@ -2911,9 +2957,9 @@ export default function GameBoard() {
             </div>
           )}
 
-          {/* Swipe indicator helper on mobile */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] text-slate-400 font-mono tracking-wider uppercase pointer-events-none opacity-70 sm:hidden">
-            ← Drag finger to steer slither →
+          {/* Swipe indicator helper on mobile (much more prominent since D-Pad is off) */}
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] text-cyan-500 font-mono font-bold tracking-widest uppercase pointer-events-none bg-cyan-950/40 px-3 py-1.5 rounded-full border border-cyan-500/20 sm:hidden animate-pulse">
+            ← Swipe Anywhere To Steer →
           </div>
 
           {/* GORGEOUS ON-SCREEN TRANSLUCENT TOUCH D-PAD OVERLAY */}
